@@ -491,7 +491,7 @@ ParseLoop:
 								fmt.Println("error parsing instagram json: ", err)
 								continue ParseLoop
 							}
-							entryChildren, err := jsonParsed.Path("entry_data.PostPage").Children()
+							entryChildren := jsonParsed.Path("entry_data.PostPage").Children()
 							if err != nil {
 								fmt.Println("unable to find entries children: ", err)
 								continue ParseLoop
@@ -906,13 +906,13 @@ ParseLoop:
 								fmt.Println("error parsing instagram json: ", err)
 								continue ParseLoop
 							}
-							entryChildren, err := jsonParsed.Path("entry_data.PostPage").Children()
+							entryChildren := jsonParsed.Path("entry_data.PostPage").Children()
 							if err != nil {
 								fmt.Println("unable to find entries children: ", err)
 								continue ParseLoop
 							}
 							for _, entryChild := range entryChildren {
-								albumChildren, err := entryChild.Path("graphql.shortcode_media.edge_sidecar_to_children.edges").Children()
+								albumChildren := entryChild.Path("graphql.shortcode_media.edge_sidecar_to_children.edges").Children()
 								if err != nil {
 									continue ParseLoop
 								}
