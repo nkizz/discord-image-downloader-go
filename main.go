@@ -220,8 +220,6 @@ func main() {
 		u.Username)
 	DiscordUserId = u.ID
 
-	updateDiscordStatus()
-
 	// keep program running until CTRL-C is pressed.
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -746,7 +744,7 @@ func getPossibleTistorySiteUrls(url string) (map[string]string, error) {
 		return nil, err
 	}
 	request.Header.Add("Accept-Encoding", "identity")
-	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36")
+	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36")
 	respHead, err := client.Do(request)
 	if err != nil {
 		return nil, err
@@ -767,7 +765,7 @@ func getPossibleTistorySiteUrls(url string) (map[string]string, error) {
 		return nil, err
 	}
 	request.Header.Add("Accept-Encoding", "identity")
-	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.181 Safari/537.36")
+	request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36")
 	resp, err := client.Do(request)
 	if err != nil {
 		return nil, err
@@ -1075,7 +1073,6 @@ func downloadFromUrl(dUrl string, filename string, path string, channelId string
 		fmt.Println("Error while writing to database", err)
 	}
 
-	updateDiscordStatus()
 	return true
 }
 
