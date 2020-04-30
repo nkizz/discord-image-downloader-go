@@ -32,6 +32,10 @@ crossbuild.bat
 testfolder/*
 test/*
 database*/
+testDown/*
+test2/*
+launch.json
+__debug_bin
 
 .idea/
 

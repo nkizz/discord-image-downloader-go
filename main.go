@@ -10,13 +10,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/signal"
 	"path"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/ChimeraCoder/anaconda"
@@ -73,7 +71,9 @@ func main() {
 	var err error
 
 	var configFile string
+	var command string
 	flag.StringVar(&configFile, "config", DEFAULT_CONFIG_FILE, "config file to read from")
+	flag.StringVar(&command, "Command", "history", "Command to run, can be help, version, channels, stats, history. Default is history")
 
 	flag.Parse()
 
@@ -171,14 +171,6 @@ func main() {
 		return
 	}
 
-	dg.AddHandler(messageCreate)
-
-	if cfg.Section("general").HasKey("skip edits") {
-		if cfg.Section("general").Key("skip edits").MustBool() == false {
-			dg.AddHandler(messageUpdate)
-		}
-	}
-
 	DownloadTistorySites = cfg.Section("general").Key("download tistory sites").MustBool()
 	MaxDownloadRetries = cfg.Section("general").Key("max download retries").MustInt(3)
 	DownloadTimeout = cfg.Section("general").Key("download timeout").MustInt(60)
@@ -219,23 +211,28 @@ func main() {
 	fmt.Printf("Client is now connected as %s. Press CTRL-C to exit.\n",
 		u.Username)
 	DiscordUserId = u.ID
+	/*switch command {
+	case "help":
+		helpHandler(m)
+	case "version":
+		versionHandler(m)
+	case "channels":
+		channelsHandler(m)
+	case "stats":
+		statsHandler(m)
+	case "history":
+		historyHandler()
+	default:
+		if historyCommandIsActive {
+			historyHandler(m)
+			return
+		}
 
-	// keep program running until CTRL-C is pressed.
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	<-sc
+		defaultHandler(m)
+	}*/
+	historyHandler()
 	myDB.Close()
 	return
-}
-
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	handleDiscordMessage(m.Message)
-}
-
-func messageUpdate(s *discordgo.Session, m *discordgo.MessageUpdate) {
-	if m.EditedTimestamp != discordgo.Timestamp("") {
-		handleDiscordMessage(m.Message)
-	}
 }
 
 func skipDuplicateLinks(linkList map[string]string, channelID string, interactive bool) map[string]string {
@@ -258,61 +255,6 @@ func skipDuplicateLinks(linkList map[string]string, channelID string, interactiv
 		return newList
 	}
 	return linkList
-}
-
-func handleDiscordMessage(m *discordgo.Message) {
-	if folderName, ok := ChannelWhitelist[m.ChannelID]; ok {
-		// download from whitelisted channels
-		downloadItems := getDownloadItemsOfMessage(m)
-
-		for _, downloadItem := range downloadItems {
-			startDownload(
-				downloadItem.Link,
-				downloadItem.Filename,
-				folderName,
-				m.ChannelID,
-				m.Author.ID,
-				downloadItem.Time,
-			)
-		}
-
-	} else if _, ok := InteractiveChannelWhitelist[m.ChannelID]; ok {
-		// handle interactive channel
-
-		// skip messages from the Bot
-		if m.Author == nil || m.Author.ID == DiscordUserId {
-			return
-		}
-
-		dg.ChannelTyping(m.ChannelID)
-
-		args := strings.Fields(m.Content)
-		if len(args) <= 0 {
-			return
-		}
-
-		_, historyCommandIsActive := historyCommandActive[m.ChannelID]
-
-		switch strings.ToLower(args[0]) {
-		case "help":
-			helpHandler(m)
-		case "version":
-			versionHandler(m)
-		case "channels":
-			channelsHandler(m)
-		case "stats":
-			statsHandler(m)
-		case "history":
-			historyHandler(m)
-		default:
-			if historyCommandIsActive {
-				historyHandler(m)
-				return
-			}
-
-			defaultHandler(m)
-		}
-	}
 }
 
 type GithubReleaseApiObject struct {

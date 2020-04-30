@@ -162,81 +162,58 @@ func statsHandler(message *discordgo.Message) {
 	}
 }
 
-func historyHandler(message *discordgo.Message) {
+func historyHandler() {
 	i := 0
-	_, historyCommandIsSet := historyCommandActive[message.ChannelID]
-	if !historyCommandIsSet || historyCommandActive[message.ChannelID] == "" {
-		historyCommandActive[message.ChannelID] = ""
-
-		idArray := strings.Split(message.Content, ",")
-		for _, channelValue := range idArray {
-			channelValue = strings.TrimSpace(channelValue)
-			if folder, ok := ChannelWhitelist[channelValue]; ok {
-				dg.ChannelMessageSend(message.ChannelID, fmt.Sprintf("downloading to `%s`", folder))
-				historyCommandActive[message.ChannelID] = "downloading"
-				lastBefore := ""
-				var lastBeforeTime time.Time
-			MessageRequestingLoop:
-				for true {
-					if lastBeforeTime != (time.Time{}) {
-						fmt.Printf("[%s] Requesting 100 more messages, (before %s)\n", time.Now().Format(time.Stamp), lastBeforeTime)
-						dg.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Requesting 100 more messages, (before %s)\n", lastBeforeTime))
-					}
-					messages, err := dg.ChannelMessages(channelValue, 100, lastBefore, "", "")
-					if err == nil {
-						if len(messages) <= 0 {
-							delete(historyCommandActive, message.ChannelID)
-							break MessageRequestingLoop
-						}
-						lastBefore = messages[len(messages)-1].ID
-						lastBeforeTime, err = messages[len(messages)-1].Timestamp.Parse()
+	for channelValue, folder := range ChannelWhitelist {
+		channelValue = strings.TrimSpace(channelValue)
+		lastBefore := ""
+		var lastBeforeTime time.Time
+	MessageRequestingLoop:
+		for true {
+			if lastBeforeTime != (time.Time{}) {
+				fmt.Printf("[%s] Requesting 100 more messages, (before %s)\n", time.Now().Format(time.Stamp), lastBeforeTime)
+			}
+			messages, err := dg.ChannelMessages(channelValue, 100, lastBefore, "", "")
+			if err == nil {
+				if len(messages) <= 0 {
+					break MessageRequestingLoop
+				}
+				lastBefore = messages[len(messages)-1].ID
+				lastBeforeTime, err = messages[len(messages)-1].Timestamp.Parse()
+				if err != nil {
+					fmt.Println(err)
+				}
+				for _, msg := range messages {
+					fileTime := time.Now()
+					if msg.Timestamp != "" {
+						fileTime, err = msg.Timestamp.Parse()
 						if err != nil {
 							fmt.Println(err)
 						}
-						for _, msg := range messages {
-							fileTime := time.Now()
-							if msg.Timestamp != "" {
-								fileTime, err = msg.Timestamp.Parse()
-								if err != nil {
-									fmt.Println(err)
-								}
-							}
-							if historyCommandActive[message.ChannelID] == "cancel" {
-								delete(historyCommandActive, message.ChannelID)
-								dg.ChannelMessageSend(message.ChannelID, "cancelled history downloading")
-								break MessageRequestingLoop
-							}
-							for _, iAttachment := range msg.Attachments {
-								if len(findDownloadedImageByUrl(iAttachment.URL)) == 0 {
-									i++
-									startDownload(iAttachment.URL, iAttachment.Filename, folder, msg.ChannelID, msg.Author.ID, fileTime)
-								}
-							}
-							foundUrls := xurls.Strict().FindAllString(msg.Content, -1)
-							for _, iFoundUrl := range foundUrls {
-								links, _ := getDownloadLinks(iFoundUrl, msg.ChannelID, false)
-								for link, filename := range links {
-									if len(findDownloadedImageByUrl(link)) == 0 {
-										i++
-										startDownload(link, filename, folder, msg.ChannelID, msg.Author.ID, fileTime)
-									}
-								}
+					}
+					for _, iAttachment := range msg.Attachments {
+						if len(findDownloadedImageByUrl(iAttachment.URL)) == 0 {
+							i++
+							startDownload(iAttachment.URL, iAttachment.Filename, folder, msg.ChannelID, msg.Author.ID, fileTime)
+						}
+					}
+					foundUrls := xurls.Strict().FindAllString(msg.Content, -1)
+					for _, iFoundUrl := range foundUrls {
+						links, _ := getDownloadLinks(iFoundUrl, msg.ChannelID, false)
+						for link, filename := range links {
+							if len(findDownloadedImageByUrl(link)) == 0 {
+								i++
+								startDownload(link, filename, folder, msg.ChannelID, msg.Author.ID, fileTime)
 							}
 						}
-					} else {
-						dg.ChannelMessageSend(message.ChannelID, err.Error())
-						fmt.Println(err)
-						delete(historyCommandActive, message.ChannelID)
-						break MessageRequestingLoop
 					}
 				}
-				dg.ChannelMessageSend(message.ChannelID, fmt.Sprintf("done, %d download links started!", i))
 			} else {
-				dg.ChannelMessageSend(message.ChannelID, "Please tell me one or multiple Channel IDs (separated by commas)\nPlease make sure the channels have been whitelisted before submitting.")
+				fmt.Println(err)
+				break MessageRequestingLoop
 			}
 		}
-	} else if historyCommandActive[message.ChannelID] == "downloading" && strings.ToLower(message.Content) == "cancel" {
-		historyCommandActive[message.ChannelID] = "cancel"
+		//dg.ChannelMessageSend(message.ChannelID, fmt.Sprintf("done, %d download links started!", i))
 	}
 }
 
