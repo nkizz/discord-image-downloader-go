@@ -1000,6 +1000,12 @@ func downloadFromUrl(dUrl string, filename string, path string, channelId string
 	contentTypeParts := strings.Split(contentType, "/")
 	if contentTypeParts[0] != "image" && contentTypeParts[0] != "video" {
 		fmt.Println("No image or video found at", dUrl)
+		f, err := os.OpenFile(path+"/"+"URLs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			return true
+		}
+		f.WriteString(dUrl + "\n")
+		f.Close()
 		return true
 	}
 
