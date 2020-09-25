@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -48,6 +49,7 @@ var (
 	clientCredentialsJson            string
 	DriveService                     *drive.Service
 	RegexpFilename                   *regexp.Regexp
+	DefaultFolderPath                string
 )
 
 type GfycatObject struct {
@@ -98,6 +100,7 @@ func main() {
 		cfg.Section("general").NewKey("max download retries", "5")
 		cfg.Section("general").NewKey("download timeout", "60")
 		cfg.Section("general").NewKey("send notices to interactive channels", "false")
+		cfg.Section("general").NewKey("default download folder", "C:\\full\\path")
 		cfg.Section("channels").NewKey("channelid1", "C:\\full\\path\\1")
 		cfg.Section("channels").NewKey("channelid2", "C:\\full\\path\\2")
 		cfg.Section("channels").NewKey("channelid3", "C:\\full\\path\\3")
@@ -136,6 +139,7 @@ func main() {
 	InteractiveChannelWhitelist = cfg.Section("interactive channels").KeysHash()
 	interactiveChannelLinkTemp = make(map[string]string)
 	historyCommandActive = make(map[string]string)
+	DefaultFolderPath = cfg.Section("general").Key("default download folder").MustString("")
 	flickrApiKey = cfg.Section("flickr").Key("api key").MustString("yourflickrapikey")
 	twitterConsumerKey := cfg.Section("twitter").Key("consumer key").MustString("your consumer key")
 	twitterConsumerSecret := cfg.Section("twitter").Key("consumer secret").MustString("your consumer secret")
@@ -431,7 +435,7 @@ ParseLoop:
 								fmt.Println("error parsing instagram json: ", err)
 								continue ParseLoop
 							}
-							entryChildren := jsonParsed.Path("entry_data.PostPage").Children()
+							entryChildren, err := jsonParsed.Path("entry_data.PostPage").Children()
 							if err != nil {
 								fmt.Println("unable to find entries children: ", err)
 								continue ParseLoop
@@ -846,13 +850,13 @@ ParseLoop:
 								fmt.Println("error parsing instagram json: ", err)
 								continue ParseLoop
 							}
-							entryChildren := jsonParsed.Path("entry_data.PostPage").Children()
+							entryChildren, err := jsonParsed.Path("entry_data.PostPage").Children()
 							if err != nil {
 								fmt.Println("unable to find entries children: ", err)
 								continue ParseLoop
 							}
 							for _, entryChild := range entryChildren {
-								albumChildren := entryChild.Path("graphql.shortcode_media.edge_sidecar_to_children.edges").Children()
+								albumChildren, err := entryChild.Path("graphql.shortcode_media.edge_sidecar_to_children.edges").Children()
 								if err != nil {
 									continue ParseLoop
 								}
@@ -884,6 +888,19 @@ func filenameFromUrl(dUrl string) string {
 
 func startDownload(dUrl string, filename string, path string, channelId string, userId string, fileTime time.Time) {
 	success := false
+	if path == "*default*" {
+		channel, err := dg.Channel(channelId)
+		if err != nil {
+			fmt.Println("Error Getting Channel Name")
+			return
+		}
+		guildName := ""
+		guild, err := dg.Guild(channel.GuildID)
+		if err == nil {
+			guildName = guild.Name
+		}
+		path = filepath.FromSlash(filepath.Clean(DefaultFolderPath + "/" + guildName + "/" + channel.Name))
+	}
 	for i := 0; i < MaxDownloadRetries; i++ {
 		success = downloadFromUrl(dUrl, filename, path, channelId, userId, fileTime)
 		if success == true {
@@ -907,7 +924,7 @@ func startDownload(dUrl string, filename string, path string, channelId string, 
 }
 
 func downloadFromUrl(dUrl string, filename string, path string, channelId string, userId string, fileTime time.Time) bool {
-	err := os.MkdirAll(path, 755)
+	err := os.MkdirAll(path, 0755)
 	if err != nil {
 		fmt.Println("Error while creating folder", path, "-", err)
 		return false
